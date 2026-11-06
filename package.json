@@ -8,7 +8,7 @@
     "opencode": ">=1.14.0"
   },
   "author": "amit-batra",
-  "name": "@amit-batra/opencode-wakelock",
+  "name": "better-opencode-wakelock",
   "homepage": "https://github.com/amit-batra/opencode-wakelock#readme",
   "description": "Prevent the system from sleeping while OpenCode agent is active (macOS + Linux)",
   "bugs": {

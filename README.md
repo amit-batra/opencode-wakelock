@@ -1,4 +1,4 @@
-# opencode-wakelock
+# better-opencode-wakelock
 
 Prevents the system from sleeping while any OpenCode agent session runs. In
 OpenCode v2, the wake lock also remains active for OpenCode-managed background
@@ -88,7 +88,7 @@ OpenCode v2:
 
 ```json
 {
-  "plugins": ["opencode-wakelock"]
+  "plugins": ["better-opencode-wakelock"]
 }
 ```
 
@@ -97,7 +97,7 @@ OpenCode v1:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-wakelock"]
+  "plugin": ["better-opencode-wakelock"]
 }
 ```
 
@@ -134,10 +134,13 @@ tagged `v<version>` with generated notes and a link to the npm package. The tag
 targets the published package's npm `gitHead`, not a later commit on `main`.
 The workflow waits for npm registry propagation before creating the GitHub release.
 
-The workflow uses the built-in `GITHUB_TOKEN`; no extra release token is needed.
-If the npm version or GitHub release already exists, that step is skipped, so
-rerunning the workflow can create a missing GitHub release without republishing
-the package. You can also run the workflow manually.
+The workflow publishes to npm and creates the GitHub release. npm publishing
+uses OIDC trusted publishing by default, which requires no token; set the
+`NPM_TOKEN` repository secret (a classic npm token) to publish with a token
+instead. The `GITHUB_TOKEN` is used for the release tag and notes. If the npm
+version or GitHub release already exists, that step is skipped, so rerunning the
+workflow can create a missing GitHub release without republishing the package.
+You can also run the workflow manually.
 
 If workflow files changed after the published commit, GitHub can reject creating
 its historical tag with `GITHUB_TOKEN`. In that case, a maintainer must first push

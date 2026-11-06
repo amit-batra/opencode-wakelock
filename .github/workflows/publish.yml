@@ -43,10 +43,10 @@ jobs:
       - name: Verify package in Node
         run: |
           PACKAGE=$(npm pack --silent)
-          mkdir /tmp/opencode-wakelock-smoke
-          npm install --prefix /tmp/opencode-wakelock-smoke "$PWD/$PACKAGE"
-          cd /tmp/opencode-wakelock-smoke
-          node --input-type=module -e "const plugin = (await import('opencode-wakelock')).default; if (plugin.id !== 'opencode-wakelock' || typeof plugin.server !== 'function') process.exit(1)"
+          mkdir /tmp/better-opencode-wakelock-smoke
+          npm install --prefix /tmp/better-opencode-wakelock-smoke "$PWD/$PACKAGE"
+          cd /tmp/better-opencode-wakelock-smoke
+          node --input-type=module -e "const plugin = (await import('better-opencode-wakelock')).default; if (plugin.id !== 'opencode-wakelock' || typeof plugin.server !== 'function') process.exit(1)"
 
       - name: Check if version already published
         id: check
@@ -63,7 +63,18 @@ jobs:
 
       - name: Publish to npm
         if: steps.check.outputs.should_publish == 'true'
-        run: npm publish --access public --provenance
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # A classic token (NPM_TOKEN secret) is used when present; otherwise
+          # fall back to OIDC trusted publishing. Provenance requires OIDC, so it
+          # is only requested on the tokenless path.
+          if [ -n "$NPM_TOKEN" ]; then
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+            npm publish --access public
+          else
+            npm publish --access public --provenance
+          fi
 
       # Also run when npm already has this version, so a failed GitHub release
       # step can be retried without republishing the package.
