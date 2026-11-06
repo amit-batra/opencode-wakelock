@@ -28,6 +28,9 @@ mock.module("fs", () => ({
     return files.get(path)!;
   },
   writeFileSync: (path: string, value: string) => { files.set(path, value); },
+  appendFileSync: (path: string, value: string) => {
+    files.set(path, (files.get(path) ?? "") + value);
+  },
   unlinkSync: (path: string) => {
     if (!files.delete(path)) throw new Error(`ENOENT: ${path}`);
   },

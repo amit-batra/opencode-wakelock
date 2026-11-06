@@ -4,6 +4,7 @@ import type {
   Plugin as PluginV2,
 } from "@opencode/plugin/promise/plugin";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -17,8 +18,22 @@ const TMP_DIR = "/tmp/opencode-wakelock";
 const SESSIONS_DIR = `${TMP_DIR}/sessions`;
 const LOCK_PID_FILE = `${TMP_DIR}/lock.pid`;
 const LEGACY_CAFFEINATE_PID_FILE = `${TMP_DIR}/caffeinate.pid`;
+const DEBUG_LOG = `${TMP_DIR}/events.log`;
 
 type SupportedPlatform = "darwin" | "linux";
+
+// Opt-in event trace written to a file, gated behind WAKELOCK_DEBUG so the
+// published plugin stays quiet by default. Useful for confirming which
+// wait/reply events OpenCode actually emits.
+const debugEnabled = process.env.WAKELOCK_DEBUG === "1";
+function dbg(event: string, detail?: Record<string, unknown>) {
+  if (!debugEnabled) return;
+  try {
+    const stamp = new Date().toISOString();
+    const line = detail ? `[${stamp}] ${event} ${JSON.stringify(detail)}\n` : `[${stamp}] ${event}\n`;
+    appendFileSync(DEBUG_LOG, line);
+  } catch {}
+}
 
 type LogFn = (
   level: "info" | "warn" | "debug",
@@ -415,12 +430,16 @@ const wakelockPlugin: Plugin = async ({ client }) => {
       // system may sleep while the user is away.
       const type = event.type as string;
       if (WAIT_EVENTS.has(type)) {
-        suspendForInput(sessionIDOf(event));
+        const sessionID = sessionIDOf(event);
+        dbg(type, { sessionID, action: "suspend", entries: getActiveSessions() });
+        suspendForInput(sessionID);
       }
 
       // The user has answered or cancelled. Re-acquire the session's entry.
       if (RESUME_EVENTS.has(type)) {
-        resumeFromInput(sessionIDOf(event));
+        const sessionID = sessionIDOf(event);
+        dbg(type, { sessionID, action: "resume" });
+        resumeFromInput(sessionID);
       }
     },
   };
@@ -566,6 +585,7 @@ const wakelockPluginV2: PluginV2 = {
             case "form.created": {
               const sessionID = (event.data as { sessionID?: string; form?: { sessionID?: string } }).sessionID
                 ?? (event.data as { form?: { sessionID?: string } }).form?.sessionID;
+              dbg(event.type as string, { sessionID, action: "suspend", entries: getActiveSessions() });
               suspendForInput(sessionID);
               break;
             }
@@ -575,6 +595,7 @@ const wakelockPluginV2: PluginV2 = {
             case "form.cancelled":
               resumeFromInput((event.data as { sessionID?: string; form?: { sessionID?: string } }).sessionID
                 ?? (event.data as { form?: { sessionID?: string } }).form?.sessionID);
+              dbg(event.type as string, { action: "resume" });
               break;
           }
 
@@ -585,11 +606,13 @@ const wakelockPluginV2: PluginV2 = {
           if (questionType === "question.asked") {
             const sessionID = (event.data as { sessionID?: string; form?: { sessionID?: string } }).sessionID
               ?? (event.data as { form?: { sessionID?: string } }).form?.sessionID;
+            dbg(questionType, { sessionID, action: "suspend", entries: getActiveSessions() });
             suspendForInput(sessionID);
           }
           if (questionType === "question.replied" || questionType === "question.cancelled") {
             resumeFromInput((event.data as { sessionID?: string; form?: { sessionID?: string } }).sessionID
               ?? (event.data as { form?: { sessionID?: string } }).form?.sessionID);
+            dbg(questionType, { action: "resume" });
           }
         }
       } catch (error) {
